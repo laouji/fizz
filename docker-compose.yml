@@ -1,0 +1,9 @@
+version: '3.1'
+services:
+  web:
+    build: .
+    volumes:
+      - ./:/go/src/github.com/laouji/fizz
+    ports:
+      - "5000:5000"
+    command: reflex -r '\.go$$' -s -- sh -c 'make build && ./${COMPOSE_PROJECT_NAME}'
