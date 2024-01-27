@@ -39,7 +39,7 @@ func validationErrorResponse(
 	res := make([]ValidationError, 0, len(errs))
 
 	for _, vErr := range errs {
-		logger.WithError(vErr).Errorf("%+v", vErr)
+		logger.Debug(vErr)
 		res = append(res, ValidationError{
 			Msg:    "input validation failed",
 			Field:  strings.ToLower(vErr.Field()),

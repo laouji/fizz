@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/laouji/fizz/pkg/fizzbuzz"
@@ -10,11 +11,11 @@ import (
 )
 
 type FizzBuzzInput struct {
-	Int1  Number `validate:"required,number"`
-	Int2  Number `validate:"required,number"`
-	Str1  string `validate:"required,printascii"`
-	Str2  string `validate:"required,printascii"`
-	Limit Number `validate:"required,number"`
+	Int1  Number `validate:"required,number,max=7"` // max refers to number of runes
+	Int2  Number `validate:"required,number,max=7"` // max refers to number of runes
+	Str1  string `validate:"required,printascii,max=30"`
+	Str2  string `validate:"required,printascii,max=30"`
+	Limit Number `validate:"required,number,max=7"` // max refers to number of runes
 }
 
 func FizzBuzz(
@@ -24,20 +25,24 @@ func FizzBuzz(
 		w.Header().Add("Content-Type", "application/json")
 
 		input := extractFizzBuzzInput(r)
-		v := validator.New()
+		v := validator.New(validator.WithRequiredStructEnabled())
 		if err := v.Struct(input); err != nil {
 			errs := err.(validator.ValidationErrors)
 			validationErrorResponse(w, logger, errs)
 			return
 		}
 
-		out := fizzbuzz.Calculate(
+		out, field, err := fizzbuzz.Calculate(
 			input.Int1.Int(),
 			input.Int2.Int(),
 			input.Str1,
 			input.Str2,
 			input.Limit.Int(),
 		)
+		if err != nil {
+			calculateErrorResponse(w, logger, field, err)
+			return
+		}
 
 		if err := json.NewEncoder(w).Encode(out); err != nil {
 			logger.WithError(err).Error("failed to encode fizzbuzz response JSON")
@@ -58,4 +63,25 @@ func extractFizzBuzzInput(r *http.Request) *FizzBuzzInput {
 		Limit: Number(queryParams.Get("limit")),
 	}
 	return params
+}
+
+func calculateErrorResponse(
+	w http.ResponseWriter,
+	logger logrus.FieldLogger,
+	field string,
+	err error,
+) {
+	res := []ValidationError{{
+		Msg:    "input validation failed",
+		Field:  strings.ToLower(field),
+		Reason: err.Error(),
+	}}
+
+	w.WriteHeader(http.StatusBadRequest)
+	err = json.NewEncoder(w).Encode(res)
+	if err != nil {
+		logger.WithError(err).Error("failed to encode response JSON")
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 }
