@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/go-playground/validator/v10"
+	"github.com/laouji/fizz/pkg/cache"
 	"github.com/laouji/fizz/pkg/fizzbuzz"
 	"github.com/sirupsen/logrus"
 )
@@ -19,12 +20,13 @@ type FizzBuzzInput struct {
 }
 
 func FizzBuzz(
+	cache *cache.Client,
 	logger logrus.FieldLogger,
 ) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Add("Content-Type", "application/json")
 
-		input := extractFizzBuzzInput(r)
+		input := extractFizzBuzzInput(r, cache)
 		v := validator.New(validator.WithRequiredStructEnabled())
 		if err := v.Struct(input); err != nil {
 			errs := err.(validator.ValidationErrors)
@@ -53,7 +55,9 @@ func FizzBuzz(
 	}
 }
 
-func extractFizzBuzzInput(r *http.Request) *FizzBuzzInput {
+func extractFizzBuzzInput(r *http.Request, cache *cache.Client) *FizzBuzzInput {
+	cache.IncrementEndpointHitCount(r.Context(), r.URL.RawQuery)
+
 	queryParams := r.URL.Query()
 	params := &FizzBuzzInput{
 		Str1:  queryParams.Get("str1"),
