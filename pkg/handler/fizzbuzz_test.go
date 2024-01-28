@@ -8,7 +8,10 @@ import (
 	"net/url"
 	"testing"
 
+	"github.com/go-redis/redismock/v9"
+	"github.com/laouji/fizz/pkg/cache"
 	"github.com/laouji/fizz/pkg/handler"
+	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/suite"
 )
@@ -16,6 +19,8 @@ import (
 type handlerTestSuite struct {
 	suite.Suite
 	fizzBuzzHandler http.HandlerFunc
+	db              *redis.Client
+	mock            redismock.ClientMock
 }
 
 func TestHandler(t *testing.T) {
@@ -26,7 +31,9 @@ func (s *handlerTestSuite) SetupTest() {
 	logger := &logrus.Logger{
 		Out: ioutil.Discard,
 	}
-	s.fizzBuzzHandler = handler.FizzBuzz(logger)
+	s.db, s.mock = redismock.NewClientMock()
+	c := cache.NewClient(s.db, logger)
+	s.fizzBuzzHandler = handler.FizzBuzz(c, logger)
 }
 
 func (s *handlerTestSuite) TestFizzBuzz_MissingParams() {
@@ -97,9 +104,11 @@ func (s *handlerTestSuite) TestFizzBuzz_StringOutOfRange() {
 }
 
 func (s *handlerTestSuite) TestFizzBuzz_OK() {
-	req, err := http.NewRequest("GET", "/?int1=3&int2=5&str1=fizz&str2=buzz&limit=16", nil)
+	rawQuery := "int1=3&int2=5&str1=fizz&str2=buzz&limit=16"
+	req, err := http.NewRequest("GET", "/?"+rawQuery, nil)
 	s.Require().NoError(err)
 
+	s.mock.ExpectZIncrBy(cache.KeyHitCountEndpoints, 1, rawQuery).SetVal(float64(0))
 	rr := httptest.NewRecorder()
 
 	s.fizzBuzzHandler(rr, req)
@@ -108,4 +117,7 @@ func (s *handlerTestSuite) TestFizzBuzz_OK() {
 	err = json.Unmarshal(rr.Body.Bytes(), &res)
 	s.Require().NoError(err)
 	s.Len(res, 16)
+
+	err = s.mock.ExpectationsWereMet()
+	s.Require().NoError(err)
 }

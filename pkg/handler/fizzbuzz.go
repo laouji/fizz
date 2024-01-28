@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/go-playground/validator/v10"
+	"github.com/laouji/fizz/pkg/cache"
 	"github.com/laouji/fizz/pkg/fizzbuzz"
 	"github.com/sirupsen/logrus"
 )
@@ -19,6 +20,7 @@ type FizzBuzzInput struct {
 }
 
 func FizzBuzz(
+	cache *cache.Client,
 	logger logrus.FieldLogger,
 ) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -31,6 +33,11 @@ func FizzBuzz(
 			validationErrorResponse(w, logger, errs)
 			return
 		}
+
+		defer func() {
+			// cache any requests that pass validation
+			cache.IncrementEndpointHitCount(r.Context(), r.URL.RawQuery)
+		}()
 
 		out, field, err := fizzbuzz.Calculate(
 			input.Int1.Int(),
