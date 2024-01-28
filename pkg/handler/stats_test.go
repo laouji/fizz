@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 
 	"github.com/go-redis/redismock/v9"
@@ -59,6 +60,6 @@ func (s *statsHandlerTestSuite) TestStats_OK() {
 	err = json.Unmarshal(rr.Body.Bytes(), &out)
 	s.Require().NoError(err)
 	s.Require().Len(out, 1)
-	s.Equal(expectedResult[0].Member, out[0].Query)
+	s.Equal(url.Values{"param": []string{"val"}}, out[0].Query)
 	s.Equal(expectedResult[0].Score, out[0].HitCount)
 }
