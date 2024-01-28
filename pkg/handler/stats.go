@@ -3,14 +3,15 @@ package handler
 import (
 	"encoding/json"
 	"net/http"
+	"net/url"
 
 	"github.com/laouji/fizz/pkg/cache"
 	"github.com/sirupsen/logrus"
 )
 
 type StatsOutput struct {
-	Query    string  `json:"query"`
-	HitCount float64 `json:"hit_count"`
+	Query    url.Values `json:"query"`
+	HitCount float64    `json:"hit_count"`
 }
 
 func Stats(
@@ -19,7 +20,6 @@ func Stats(
 ) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Add("Content-Type", "application/json")
-		logger.Info("hello")
 
 		results, err := cache.GetEndpointHitCount(r.Context(), 0, 1)
 		if err != nil {
@@ -30,10 +30,16 @@ func Stats(
 
 		out := []StatsOutput{}
 		for _, z := range results {
-			query, ok := z.Member.(string)
+			rawQuery, ok := z.Member.(string)
 			if !ok {
 				w.WriteHeader(http.StatusInternalServerError)
 				logger.Errorf("failed convert %T to string", z.Member)
+				return
+			}
+			query, err := url.ParseQuery(rawQuery)
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				logger.WithError(err).Errorf("failed to parse query %s", rawQuery)
 				return
 			}
 			out = append(out, StatsOutput{

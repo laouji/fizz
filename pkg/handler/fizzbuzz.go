@@ -26,13 +26,18 @@ func FizzBuzz(
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Add("Content-Type", "application/json")
 
-		input := extractFizzBuzzInput(r, cache)
+		input := extractFizzBuzzInput(r)
 		v := validator.New(validator.WithRequiredStructEnabled())
 		if err := v.Struct(input); err != nil {
 			errs := err.(validator.ValidationErrors)
 			validationErrorResponse(w, logger, errs)
 			return
 		}
+
+		defer func() {
+			// cache any requests that pass validation
+			cache.IncrementEndpointHitCount(r.Context(), r.URL.RawQuery)
+		}()
 
 		out, field, err := fizzbuzz.Calculate(
 			input.Int1.Int(),
@@ -55,9 +60,7 @@ func FizzBuzz(
 	}
 }
 
-func extractFizzBuzzInput(r *http.Request, cache *cache.Client) *FizzBuzzInput {
-	cache.IncrementEndpointHitCount(r.Context(), r.URL.RawQuery)
-
+func extractFizzBuzzInput(r *http.Request) *FizzBuzzInput {
 	queryParams := r.URL.Query()
 	params := &FizzBuzzInput{
 		Str1:  queryParams.Get("str1"),

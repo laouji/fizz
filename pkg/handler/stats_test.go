@@ -2,9 +2,9 @@ package handler_test
 
 import (
 	"encoding/json"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"testing"
 
 	"github.com/go-redis/redismock/v9"
@@ -28,8 +28,7 @@ func TestStatsHandler(t *testing.T) {
 
 func (s *statsHandlerTestSuite) SetupTest() {
 	logger := &logrus.Logger{
-		//		Out: ioutil.Discard,
-		Out: os.Stderr,
+		Out: ioutil.Discard,
 	}
 	s.db, s.mock = redismock.NewClientMock()
 	c := cache.NewClient(s.db, logger)
